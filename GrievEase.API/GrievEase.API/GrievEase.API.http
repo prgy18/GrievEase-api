@@ -1,0 +1,6 @@
+@GrievEase.API_HostAddress = http://localhost:5095
+
+GET {{GrievEase.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
