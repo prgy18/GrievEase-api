@@ -25,11 +25,13 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
-    <Folder Include="Helpers\" />
     <Folder Include="Middleware\" />
-    <Folder Include="Models\DTOs\" />
     <Folder Include="Services\Interfaces\" />
     <Folder Include="Services\Implementations\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Models\DTOs\Auth\ChangePasswordDto.cs" />
   </ItemGroup>
 
 </Project>
