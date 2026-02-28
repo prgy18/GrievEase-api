@@ -1,12 +1,8 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
+﻿
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Win32;
-using System.ComponentModel;
+
 using System.ComponentModel.DataAnnotations;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
-using static System.Net.Mime.MediaTypeNames;
+
 
 namespace GrievEase.API.Models.Entities;
 

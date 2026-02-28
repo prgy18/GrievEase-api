@@ -24,13 +24,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
-    <Folder Include="Middleware\" />
-    <Folder Include="Services\Interfaces\" />
-    <Folder Include="Services\Implementations\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="Models\DTOs\Auth\ChangePasswordDto.cs" />
   </ItemGroup>
 
