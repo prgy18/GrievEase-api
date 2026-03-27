@@ -5,6 +5,7 @@ using GrievEase.API.Models.DTOs.Grievance;
 using GrievEase.API.Models.Entities;
 using GrievEase.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Collections;
 
 namespace GrievEase.API.Services.Implementations;
 
@@ -82,6 +83,7 @@ public class GrievanceService : IGrievanceService
         var query = _context.Grievances
             .Include(g => g.User)
             .AsQueryable();
+
 
         // Apply filters
         if (!string.IsNullOrWhiteSpace(department))
@@ -513,13 +515,13 @@ public class GrievanceService : IGrievanceService
             throw new UnauthorizedAccessException("Only Government Officials can view statistics.");
         }
 
-        // Overall counts
+        // Overall counts — unchanged
         var totalGrievances = await _context.Grievances.CountAsync();
         var pendingCount = await _context.Grievances.CountAsync(g => g.Status == GrievanceStatus.Pending);
         var inProcessCount = await _context.Grievances.CountAsync(g => g.Status == GrievanceStatus.InProcess);
         var solvedCount = await _context.Grievances.CountAsync(g => g.Status == GrievanceStatus.Solved);
 
-        // Average resolution time (in days)
+        // Average resolution time — unchanged
         var solvedGrievances = await _context.Grievances
             .Where(g => g.Status == GrievanceStatus.Solved && g.SolvedOn.HasValue)
             .Select(g => new { g.CreatedAt, g.SolvedOn })
@@ -528,17 +530,18 @@ public class GrievanceService : IGrievanceService
         double averageResolutionDays = 0;
         if (solvedGrievances.Any())
         {
-            var resolutionTimes = solvedGrievances
-                .Select(g => (g.SolvedOn!.Value - g.CreatedAt).TotalDays);
-            averageResolutionDays = resolutionTimes.Average();
+            averageResolutionDays = solvedGrievances
+                .Select(g => (g.SolvedOn!.Value - g.CreatedAt).TotalDays)
+                .Average();
         }
 
-        // Department-wise statistics
+        // Department-wise stats — unchanged, uses your existing DepartmentStats class
+        // FIX 1: keep using 'Department' property (not 'DepartmentName') to match your existing class
         var departmentStats = await _context.Grievances
             .GroupBy(g => g.Department)
             .Select(group => new DepartmentStats
             {
-                Department = group.Key,
+                Department = group.Key,        // ← your existing property name, keep it
                 Total = group.Count(),
                 Pending = group.Count(g => g.Status == GrievanceStatus.Pending),
                 InProcess = group.Count(g => g.Status == GrievanceStatus.InProcess),
@@ -546,7 +549,7 @@ public class GrievanceService : IGrievanceService
             })
             .ToListAsync();
 
-        // Top 10 localities with most grievances
+        // Top 10 localities — unchanged
         var topLocalities = await _context.Grievances
             .GroupBy(g => g.Locality)
             .Select(group => new LocalityStats
@@ -559,6 +562,32 @@ public class GrievanceService : IGrievanceService
             .Take(10)
             .ToListAsync();
 
+        // FIX 2: build MyDepartment as a local variable, not via 'stats' which doesn't exist yet
+        // Reuse user fetched at the top — no need to fetch again
+        DepartmentStats? myDepartment = null;
+
+        if (!string.IsNullOrWhiteSpace(user.Department))
+        {
+            var deptQuery = _context.Grievances
+                .Where(g => g.Department == user.Department);
+
+            var deptTotal = await deptQuery.CountAsync();
+            var deptPending = await deptQuery.CountAsync(g => g.Status == GrievanceStatus.Pending);
+            var deptInProcess = await deptQuery.CountAsync(g => g.Status == GrievanceStatus.InProcess);
+            var deptSolved = await deptQuery.CountAsync(g => g.Status == GrievanceStatus.Solved);
+
+            // FIX 1 continued: use 'Department' not 'DepartmentName' to match your existing class
+            // Add ResolutionRate to your DepartmentStats class if it doesn't exist yet
+            myDepartment = new DepartmentStats
+            {
+                Department = user.Department,
+                Total = deptTotal,
+                Pending = deptPending,
+                InProcess = deptInProcess,
+                Solved = deptSolved
+            };
+        }
+
         return new StatisticsDto
         {
             TotalGrievances = totalGrievances,
@@ -567,7 +596,8 @@ public class GrievanceService : IGrievanceService
             SolvedGrievances = solvedCount,
             AverageResolutionDays = Math.Round(averageResolutionDays, 2),
             DepartmentWiseStats = departmentStats,
-            TopLocalities = topLocalities
+            TopLocalities = topLocalities,
+            MyDepartment = myDepartment   // ← new field, null if dept not set
         };
     }
 

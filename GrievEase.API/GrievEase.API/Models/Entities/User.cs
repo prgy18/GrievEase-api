@@ -32,7 +32,8 @@ public class User
     [Required(ErrorMessage = "Address is required")]
     [MaxLength(255, ErrorMessage = "Address cannot exceed 255 characters")]
     public string Address { get; set; } = string.Empty;
-
+    [MaxLength(50)]
+    public string? Department { get; set; }
     [Required(ErrorMessage = "Sign-in type is required")]
     public SignInType SignInType { get; set; } = SignInType.LocalityMember;
 

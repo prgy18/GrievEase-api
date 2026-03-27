@@ -1,4 +1,5 @@
-﻿using GrievEase.API.Data;
+﻿using GrievEase.API.Constants;
+using GrievEase.API.Data;
 using GrievEase.API.Helpers;
 using GrievEase.API.Models.DTOs.Auth;
 using GrievEase.API.Models.Entities;
@@ -42,6 +43,17 @@ public class AuthService : IAuthService
         {
             throw new InvalidOperationException("Email already registered. Please login or use a different email.");
         }
+       
+        if (registerDto.SignInType == SignInType.GovernmentOfficial)
+        {
+            if (string.IsNullOrWhiteSpace(registerDto.Department))
+                throw new InvalidOperationException(
+                    "Department is required for Government Officials.");
+
+            if (!Departments.IsValid(registerDto.Department))
+                throw new InvalidOperationException(
+                    $"Invalid department. Valid options: {string.Join(", ", Departments.GetAllDepartments())}");
+        }
 
         // Create new user
         var user = new User
@@ -52,6 +64,9 @@ public class AuthService : IAuthService
             PasswordHash = _passwordHelper.HashPassword(registerDto.Password),
             PhoneNumber = registerDto.PhoneNumber,
             Address = registerDto.Address,
+            Department = registerDto.SignInType == SignInType.GovernmentOfficial
+        ? registerDto.Department
+        : null,
             SignInType = registerDto.SignInType,
             IsActive = true,
             TokenVersion = 0,
@@ -209,6 +224,7 @@ public class AuthService : IAuthService
             Email = user.Email,
             PhoneNumber = user.PhoneNumber,
             Address = user.Address,
+            Department = user.Department,
             SignInType = user.SignInType,
             IsActive = user.IsActive,
             LastLogin = user.LastLogin,

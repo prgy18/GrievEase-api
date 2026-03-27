@@ -7,6 +7,7 @@ public class StatisticsDto
     public int PendingGrievances { get; set; }
     public int InProcessGrievances { get; set; }
     public int SolvedGrievances { get; set; }
+    public DepartmentStats? MyDepartment { get; set; }
 
     // Average resolution time in days
     public double AverageResolutionDays { get; set; }
@@ -25,6 +26,8 @@ public class DepartmentStats
     public int Pending { get; set; }
     public int InProcess { get; set; }
     public int Solved { get; set; }
+    public double ResolutionRate { get; set; }  // solved/total * 100
+    
 }
 
 public class LocalityStats

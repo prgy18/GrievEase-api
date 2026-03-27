@@ -138,6 +138,7 @@ public class UserService : IUserService
             Email = user.Email,
             PhoneNumber = user.PhoneNumber,
             Address = user.Address,
+            Department = user.Department,
             SignInType = user.SignInType,
             IsActive = user.IsActive,
             LastLogin = user.LastLogin,
