@@ -15,6 +15,10 @@ public class UserDto
     public string Email { get; set; } = string.Empty;
     public string PhoneNumber { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
+    public string? Pincode { get; set; }
+
+    public string? City { get; set; }
+    public string? State { get; set; }
     public string? Department { get; set; }
     public SignInType SignInType { get; set; }
     public bool IsActive { get; set; }

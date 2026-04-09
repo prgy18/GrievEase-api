@@ -33,6 +33,9 @@ public interface IGrievanceService
         string? department = null,
         string? status = null,
         string? locality = null,
+        string? pincode= null,
+        string? city = null,        // ADD
+    string? name = null,        // ADD — for member's all-grievances name filter
         string sortBy = "recent");
 
     /// <summary>
@@ -72,6 +75,15 @@ public interface IGrievanceService
         Guid grievanceId,
         Guid userId,
         UpdateGrievanceDto updateDto);
+    Task<GrievanceResponseDto> RequestApprovalAsync(
+    Guid grievanceId, Guid officialUserId,
+    string solvedImageUrl, string? solvedImagePublicId);
+
+    Task<GrievanceResponseDto> ApproveResolutionAsync(
+        Guid grievanceId, Guid citizenUserId);
+
+    Task<GrievanceResponseDto> RejectResolutionAsync(
+        Guid grievanceId, Guid citizenUserId, string rejectionReason);
 
     /// <summary>
     /// Delete grievance (only by creator, only if status is 'pending')

@@ -28,17 +28,21 @@ public class GrievanceController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAllGrievances(
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] string? department = null,
-        [FromQuery] string? status = null,
-        [FromQuery] string? locality = null,
-        [FromQuery] string sortBy = "recent")
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? department = null,
+    [FromQuery] string? status = null,
+    [FromQuery] string? locality = null,
+    [FromQuery] string? pincode = null,
+    [FromQuery] string? city = null,      // ADD
+    [FromQuery] string? name = null,      // ADD
+    [FromQuery] string sortBy = "recent")
     {
         try
         {
             var userId = GetUserIdFromToken();
             var result = await _grievanceService.GetAllGrievancesAsync(
-                userId, pageNumber, pageSize, department, status, locality, sortBy);
+        userId, pageNumber, pageSize,
+        department, status, locality, pincode, city, name, sortBy);
 
             return Ok(ApiResponse<PaginatedResponse<GrievanceResponseDto>>.SuccessResponse(result));
         }
@@ -446,5 +450,71 @@ public class GrievanceController : ControllerBase
             throw new UnauthorizedAccessException("Invalid token.");
         }
         return Guid.Parse(userIdClaim);
+    }
+    // GET /api/location/pincode/{pin}
+    [HttpGet("pincode/{pin}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetPincodeDetails(string pin)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(pin, @"^\d{6}$"))
+            return BadRequest(new { success = false, message = "Invalid pincode format" });
+
+        try
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(5);
+            var response = await httpClient.GetStringAsync(
+                $"https://api.postalpincode.in/pincode/{pin}");
+
+            return Content(response, "application/json");
+        }
+        catch
+        {
+            return StatusCode(503, new { success = false, message = "Pincode service unavailable" });
+        }
+    }
+    /// <summary>
+    /// Official sends grievance for citizen approval with proof photo
+    /// PUT /api/grievance/{id}/request-approval
+    /// </summary>
+    [HttpPut("{id}/request-approval")]
+    [Authorize(Roles = "GovernmentOfficial")]
+    public async Task<IActionResult> RequestApproval(
+        Guid id,
+        [FromBody] RequestApprovalDto dto)
+    {
+        var userId = GetUserIdFromToken();
+        var result = await _grievanceService.RequestApprovalAsync(
+            id, userId, dto.SolvedImageUrl, dto.SolvedImagePublicId);
+        return Ok(ApiResponse<GrievanceResponseDto>.SuccessResponse(result));
+    }
+
+    /// <summary>
+    /// Citizen approves the resolution
+    /// PUT /api/grievance/{id}/approve
+    /// </summary>
+    [HttpPut("{id}/approve")]
+    [Authorize(Roles = "LocalityMember")]
+    public async Task<IActionResult> ApproveResolution(Guid id)
+    {
+        var userId = GetUserIdFromToken();
+        var result = await _grievanceService.ApproveResolutionAsync(id, userId);
+        return Ok(ApiResponse<GrievanceResponseDto>.SuccessResponse(result));
+    }
+
+    /// <summary>
+    /// Citizen rejects the resolution with mandatory reason
+    /// PUT /api/grievance/{id}/reject
+    /// </summary>
+    [HttpPut("{id}/reject")]
+    [Authorize(Roles = "LocalityMember")]
+    public async Task<IActionResult> RejectResolution(
+        Guid id,
+        [FromBody] RejectResolutionDto dto)
+    {
+        var userId = GetUserIdFromToken();
+        var result = await _grievanceService.RejectResolutionAsync(
+            id, userId, dto.Reason);
+        return Ok(ApiResponse<GrievanceResponseDto>.SuccessResponse(result));
     }
 }

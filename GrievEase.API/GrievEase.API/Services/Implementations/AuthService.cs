@@ -2,6 +2,7 @@
 using GrievEase.API.Data;
 using GrievEase.API.Helpers;
 using GrievEase.API.Models.DTOs.Auth;
+using GrievEase.API.Models.DTOs.Common;
 using GrievEase.API.Models.Entities;
 using GrievEase.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -43,7 +44,14 @@ public class AuthService : IAuthService
         {
             throw new InvalidOperationException("Email already registered. Please login or use a different email.");
         }
-       
+        if (registerDto.SignInType == SignInType.LocalityMember)
+        {
+            if (string.IsNullOrWhiteSpace(registerDto.Pincode))
+                throw new InvalidOperationException("Pincode is required for Locality Members.");
+
+            if (string.IsNullOrWhiteSpace(registerDto.City))
+                throw new InvalidOperationException("Please enter a valid pincode to auto-fill your city.");
+        }
         if (registerDto.SignInType == SignInType.GovernmentOfficial)
         {
             if (string.IsNullOrWhiteSpace(registerDto.Department))
@@ -67,6 +75,12 @@ public class AuthService : IAuthService
             Department = registerDto.SignInType == SignInType.GovernmentOfficial
         ? registerDto.Department
         : null,
+            Pincode = registerDto.SignInType == SignInType.LocalityMember
+                 ? registerDto.Pincode : null,
+            City = registerDto.SignInType == SignInType.LocalityMember
+                 ? registerDto.City : null,
+            State = registerDto.SignInType == SignInType.LocalityMember
+                 ? registerDto.State : null,
             SignInType = registerDto.SignInType,
             IsActive = true,
             TokenVersion = 0,
@@ -224,7 +238,10 @@ public class AuthService : IAuthService
             Email = user.Email,
             PhoneNumber = user.PhoneNumber,
             Address = user.Address,
+            City = user.City,
+            State = user.State,
             Department = user.Department,
+            Pincode = user.Pincode,   // ADD
             SignInType = user.SignInType,
             IsActive = user.IsActive,
             LastLogin = user.LastLogin,

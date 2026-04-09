@@ -33,4 +33,12 @@ public class RegisterDto
     //public SignInType SignInType { get; set; }
     [Required(ErrorMessage = "Role is required")]
     public SignInType SignInType { get; set; }
+    [MaxLength(6)]
+    [RegularExpression(@"^\d{6}$", ErrorMessage = "Pincode must be exactly 6 digits")]
+    public string? Pincode { get; set; }
+    [MaxLength(100)]
+    public string? City { get; set; }
+
+    [MaxLength(100)]
+    public string? State { get; set; }
 }

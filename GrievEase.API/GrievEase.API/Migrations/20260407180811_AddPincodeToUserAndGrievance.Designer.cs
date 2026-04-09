@@ -4,6 +4,7 @@ using GrievEase.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GrievEase.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260407180811_AddPincodeToUserAndGrievance")]
+    partial class AddPincodeToUserAndGrievance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -80,10 +83,6 @@ namespace GrievEase.API.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<string>("SolvedImagePublicId")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -118,9 +117,6 @@ namespace GrievEase.API.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("WasRejected")
-                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -198,10 +194,6 @@ namespace GrievEase.API.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<string>("City")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -242,10 +234,6 @@ namespace GrievEase.API.Migrations
                     b.Property<string>("SignInType")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("State")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("TokenVersion")
                         .HasColumnType("int");

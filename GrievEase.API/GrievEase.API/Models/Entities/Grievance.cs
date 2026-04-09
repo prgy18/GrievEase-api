@@ -37,6 +37,9 @@ public class Grievance
     [MaxLength(100)]
     public string State { get; set; } = string.Empty;
 
+    [MaxLength(6)]
+    public string? Pincode { get; set; }
+
     [Required]
     [MaxLength(50)]
     public string Department { get; set; } = string.Empty;
@@ -77,6 +80,13 @@ public class Grievance
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? SolvedOn { get; set; }
+
+    // Set when citizen rejects the resolution
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
+    // Flag so official knows it was previously rejected
+    public bool WasRejected { get; set; } = false;
 
     // Navigation Properties
     public virtual User User { get; set; } = null!;

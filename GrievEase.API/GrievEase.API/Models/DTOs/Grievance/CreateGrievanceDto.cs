@@ -19,7 +19,12 @@ public class CreateGrievanceDto
 
     [Required(ErrorMessage = "City is required")]
     [MaxLength(100, ErrorMessage = "City cannot exceed 100 characters")]
+
     public string City { get; set; } = string.Empty;
+
+    [MaxLength(6)]
+    [RegularExpression(@"^\d{6}$", ErrorMessage = "Pincode must be exactly 6 digits")]
+    public string? Pincode { get; set; }
 
     [Required(ErrorMessage = "State is required")]
     [MaxLength(100, ErrorMessage = "State cannot exceed 100 characters")]

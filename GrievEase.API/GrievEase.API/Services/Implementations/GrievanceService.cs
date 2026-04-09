@@ -46,6 +46,7 @@ public class GrievanceService : IGrievanceService
             Locality = createDto.Locality,
             City = createDto.City,
             State = createDto.State,
+            Pincode = createDto.Pincode,
             Department = createDto.Department,
             Description = createDto.Description,
             PhoneNumber = createDto.PhoneNumber,
@@ -72,19 +73,30 @@ public class GrievanceService : IGrievanceService
     /// </summary>
     public async Task<PaginatedResponse<GrievanceResponseDto>> GetAllGrievancesAsync(
         Guid currentUserId,
-        int pageNumber = 1,
-        int pageSize = 10,
-        string? department = null,
-        string? status = null,
-        string? locality = null,
-        string sortBy = "recent")
+    int pageNumber = 1,
+    int pageSize = 10,
+    string? department = null,
+    string? status = null,
+    string? locality = null,
+    string? pincode = null,
+    string? city = null,        // ADD
+    string? name = null,        // ADD — for member's all-grievances name filter
+    string sortBy = "recent")
     {
         // Start with base query
         var query = _context.Grievances
             .Include(g => g.User)
             .AsQueryable();
 
+        if (!string.IsNullOrWhiteSpace(city))
+        {
+            query = query.Where(g => g.City.ToLower() == city.ToLower());
+        }
 
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            query = query.Where(g => g.User.Name.ToLower().Contains(name.ToLower()));
+        }
         // Apply filters
         if (!string.IsNullOrWhiteSpace(department))
         {
@@ -99,6 +111,10 @@ public class GrievanceService : IGrievanceService
         if (!string.IsNullOrWhiteSpace(locality))
         {
             query = query.Where(g => g.Locality.ToLower().Contains(locality.ToLower()));
+        }
+        if (!string.IsNullOrWhiteSpace(pincode))
+        {
+            query = query.Where(g => g.Pincode == pincode);
         }
 
         // Apply sorting
@@ -370,7 +386,19 @@ public class GrievanceService : IGrievanceService
         }
 
         // Update status
-        grievance.Status = updateStatusDto.Status;
+        // Officials can only move: pending → in process → awaiting approval
+        // They CANNOT directly mark as solved anymore
+        if (user.SignInType == SignInType.GovernmentOfficial)
+        {
+            if (updateStatusDto.Status == GrievanceStatus.Solved)
+                throw new InvalidOperationException(
+                    "Officials cannot directly mark as solved. " +
+                    "Use the request-approval endpoint instead.");
+
+            if (updateStatusDto.Status == GrievanceStatus.AwaitingApproval)
+                throw new InvalidOperationException(
+                    "Use the request-approval endpoint to send for citizen approval.");
+        }
 
         // If status is "solved", set solved timestamp and image
         if (updateStatusDto.Status == GrievanceStatus.Solved)
@@ -600,6 +628,116 @@ public class GrievanceService : IGrievanceService
             MyDepartment = myDepartment   // ← new field, null if dept not set
         };
     }
+    /// <summary>
+    /// Official marks grievance as awaiting citizen approval.
+    /// Requires solved image proof.
+    /// Transitions: in process → awaiting approval
+    /// </summary>
+    public async Task<GrievanceResponseDto> RequestApprovalAsync(
+        Guid grievanceId,
+        Guid officialUserId,
+        string solvedImageUrl,
+        string? solvedImagePublicId)
+    {
+        var user = await _context.Users.FindAsync(officialUserId);
+        if (user == null || user.SignInType != SignInType.GovernmentOfficial)
+            throw new UnauthorizedAccessException("Only Government Officials can request approval.");
+
+        var grievance = await _context.Grievances
+            .Include(g => g.User)
+            .FirstOrDefaultAsync(g => g.Id == grievanceId);
+
+        if (grievance == null)
+            throw new KeyNotFoundException("Grievance not found.");
+
+        if (grievance.Status != GrievanceStatus.InProcess)
+            throw new InvalidOperationException(
+                "Only in-process grievances can be sent for approval.");
+
+        if (string.IsNullOrWhiteSpace(solvedImageUrl))
+            throw new ArgumentException("A proof photo is required to request approval.");
+
+        grievance.Status = GrievanceStatus.AwaitingApproval;
+        grievance.SolvedImageUrl = solvedImageUrl;
+        grievance.SolvedImagePublicId = solvedImagePublicId;
+        grievance.WasRejected = false;   // reset if previously rejected
+        grievance.RejectionReason = null;
+        grievance.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return await MapToGrievanceResponseDto(grievance, officialUserId);
+    }
+
+    /// <summary>
+    /// Citizen approves the resolution.
+    /// Transitions: awaiting approval → solved
+    /// Only callable by the original submitter.
+    /// </summary>
+    public async Task<GrievanceResponseDto> ApproveResolutionAsync(
+        Guid grievanceId,
+        Guid citizenUserId)
+    {
+        var grievance = await _context.Grievances
+            .Include(g => g.User)
+            .FirstOrDefaultAsync(g => g.Id == grievanceId);
+
+        if (grievance == null)
+            throw new KeyNotFoundException("Grievance not found.");
+
+        if (grievance.UserId != citizenUserId)
+            throw new UnauthorizedAccessException(
+                "Only the original submitter can approve this grievance.");
+
+        if (grievance.Status != GrievanceStatus.AwaitingApproval)
+            throw new InvalidOperationException(
+                "Only grievances awaiting approval can be approved.");
+
+        grievance.Status = GrievanceStatus.Solved;
+        grievance.SolvedOn = DateTime.UtcNow;
+        grievance.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return await MapToGrievanceResponseDto(grievance, citizenUserId);
+    }
+
+    /// <summary>
+    /// Citizen rejects the resolution with a mandatory reason.
+    /// Transitions: awaiting approval → pending
+    /// Only callable by the original submitter.
+    /// </summary>
+    public async Task<GrievanceResponseDto> RejectResolutionAsync(
+        Guid grievanceId,
+        Guid citizenUserId,
+        string rejectionReason)
+    {
+        if (string.IsNullOrWhiteSpace(rejectionReason))
+            throw new ArgumentException("A rejection reason is required.");
+
+        var grievance = await _context.Grievances
+            .Include(g => g.User)
+            .FirstOrDefaultAsync(g => g.Id == grievanceId);
+
+        if (grievance == null)
+            throw new KeyNotFoundException("Grievance not found.");
+
+        if (grievance.UserId != citizenUserId)
+            throw new UnauthorizedAccessException(
+                "Only the original submitter can reject this grievance.");
+
+        if (grievance.Status != GrievanceStatus.AwaitingApproval)
+            throw new InvalidOperationException(
+                "Only grievances awaiting approval can be rejected.");
+
+        grievance.Status = GrievanceStatus.Pending;
+        grievance.WasRejected = true;
+        grievance.RejectionReason = rejectionReason;
+        grievance.SolvedImageUrl = null;   // clear the proof photo
+        grievance.SolvedImagePublicId = null;
+        grievance.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return await MapToGrievanceResponseDto(grievance, citizenUserId);
+    }
 
     // ==================== HELPER METHODS ====================
 
@@ -622,6 +760,7 @@ public class GrievanceService : IGrievanceService
             Street = grievance.Street,
             Locality = grievance.Locality,
             City = grievance.City,
+            Pincode = grievance.Pincode,   // ADD
             State = grievance.State,
             Department = grievance.Department,
             Description = grievance.Description,
@@ -636,7 +775,9 @@ public class GrievanceService : IGrievanceService
             HasUpvoted = hasUpvoted,
             CreatedAt = grievance.CreatedAt,
             UpdatedAt = grievance.UpdatedAt,
-            SolvedOn = grievance.SolvedOn
+            SolvedOn = grievance.SolvedOn,
+            RejectionReason = grievance.RejectionReason,
+            WasRejected = grievance.WasRejected
         };
     }
 }
